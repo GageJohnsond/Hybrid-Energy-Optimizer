@@ -39,7 +39,7 @@ if response.status_code == 200:
     # Data rows (list of lists)
     rows = data.get("data", [])
     if rows:
-        columns = [field['name'] for field in data.get("fields", [])]  # Extract column names to fix TypeError
+        columns = [field['name'] for field in data.get("fields", [])]  # Extract column names
         df_load = pd.DataFrame(rows, columns=columns)  # Convert to DataFrame with string columns
         # Extract relevant load columns (adjust based on actual fields, e.g., for total load)
         load_cols = [col for col in df_load.columns if "sum" in col.lower() and "load" in col.lower()]
@@ -50,15 +50,31 @@ if response.status_code == 200:
 else:
     print(f"Error: {response.status_code} - {response.text}")
 
-# Step 4: Use gridstatus for system-wide fuel mix breakdowns (approximate for West by scaling if needed)
+# Step 4: Use gridstatus for today's fuel mix breakdowns (system-wide; scale for West if needed)
 ercot = Ercot()
-start_date = datetime.date(2025, 9, 11)
-end_date = datetime.date(2025, 9, 13)  # Exclusive end, so up to Sep 12
-fuel_dfs = []
-for single_date in pd.date_range(start_date, end_date - datetime.timedelta(days=1), freq='D'):
-    daily_mix = ercot.get_fuel_mix_detailed(date=single_date)  # Changed to detailed for historical support
-    fuel_dfs.append(daily_mix)
-
-fuel_mix = pd.concat(fuel_dfs, ignore_index=True)
-print("Fuel Mix Preview:")
+fuel_mix = ercot.get_fuel_mix("today")  # Use "today" to avoid NotSupported error; or "latest" for real-time
+print("Fuel Mix Preview (Today's Data):")
 print(fuel_mix.head())  # Columns: Time, Nuclear, Coal, Natural Gas, Wind, Solar, Hydro, Power Storage, Other
+
+# Alternative Step 4: Use EIA API for historical fuel mix (if gridstatus historical not needed)
+EIA_API_KEY = "i1eamKsKUoUMzkwKKw9EDcW5EXokmLj8mf9bA83m"  # Replace with your free key from eia.gov
+EIA_URL = "https://api.eia.gov/v2/electricity/rto/fuel-type-data/data/"
+eia_params = {
+    "api_key": EIA_API_KEY,
+    "frequency": "hourly",
+    "data": ["value"],
+    "facets": {"respondent": ["ERCO"]},  # ERCOT
+    "start": "2025-09-11T00",
+    "end": "2025-09-13T23",
+    "sort": [{"column": "period", "direction": "desc"}]
+}
+eia_response = requests.get(EIA_URL, params=eia_params)
+if eia_response.status_code == 200:
+    eia_data = eia_response.json()["response"]["data"]
+    df_eia = pd.DataFrame(eia_data)
+    # Pivot for fuel columns (e.g., 'fueltype' = 'NG' for natural gas, 'WND' wind, etc.)
+    df_eia_pivot = df_eia.pivot(index="period", columns="fueltype", values="value").reset_index()
+    print("EIA Historical Fuel Mix Preview:")
+    print(df_eia_pivot.head())  # Columns: period (time), COL (coal), NG (nat gas), NUC (nuclear), SUN (solar), WAT (hydro), WND (wind), etc.
+else:
+    print(f"EIA Error: {eia_response.status_code} - {eia_response.text}")
