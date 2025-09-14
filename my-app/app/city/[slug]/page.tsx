@@ -1,8 +1,11 @@
+// File: my-app/app/city/[slug]/page.tsx
+// Updated to use real ERCOT data for Lubbock
+
 import { notFound } from "next/navigation"
 import { CityHeader } from "@/components/city-header"
 import { EnergyCharts } from "@/components/energy-charts"
 import { ContentSections } from "@/components/content-sections"
-// import { ScrollspyNavigation } from "@/components/scrollspy-navigation"
+import { lubbockERCOTData, convertERCOTToAppFormat } from "@/lib/ercot-data"
 
 // Sample city data - in a real app, this would come from an API
 function generateCityData(name: string, state: string, population: number) {
@@ -168,11 +171,28 @@ const ALL_CITIES = [
   { name: "San Angelo", state: "TX", population: 100159 },
 ]
 
-// Generate city data for all cities
+// Generate city data for all cities, with special handling for Lubbock
 const CITY_DATA = ALL_CITIES.reduce(
   (acc, city) => {
     const slug = `${city.name.toLowerCase().replace(/\s+/g, "-")}-${city.state.toLowerCase()}`
-    acc[slug] = generateCityData(city.name, city.state, city.population)
+    
+    // Use real ERCOT data for Lubbock, generated data for others
+    if (city.name === "Lubbock" && city.state === "TX") {
+      acc[slug] = {
+        name: city.name,
+        state: city.state,
+        population: city.population,
+        region: "ERCOT",
+        currentEnergy: lubbockERCOTData.currentEnergy,
+        optimizedEnergy: lubbockERCOTData.optimizedEnergy,
+        totalDemand: lubbockERCOTData.totalDemand,
+        renewablePercent: lubbockERCOTData.renewablePercent,
+        co2Intensity: lubbockERCOTData.co2Intensity,
+      }
+    } else {
+      acc[slug] = generateCityData(city.name, city.state, city.population)
+    }
+    
     return acc
   },
   {} as Record<string, any>,

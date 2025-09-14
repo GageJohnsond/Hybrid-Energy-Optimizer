@@ -1,3 +1,4 @@
+// File: my-app/components/energy-charts.tsx
 "use client"
 
 import { useState } from "react"
@@ -28,14 +29,15 @@ interface EnergyChartsProps {
   cityData: CityData
 }
 
+// Updated color palette - no black colors
 const ENERGY_COLORS = {
-  naturalGas: "hsl(var(--chart-1))", // Orange
-  petroleum: "hsl(var(--chart-2))", // Dark Gray
-  coal: "hsl(var(--chart-3))", // Very Dark Gray
-  nuclear: "hsl(var(--chart-4))", // Blue
-  wind: "hsl(var(--chart-5))", // Green
-  solar: "hsl(var(--chart-6))", // Yellow
-  hydro: "hsl(var(--chart-7))", // Cyan
+  naturalGas: "#f97316", // Orange
+  petroleum: "#6b7280", // Gray
+  coal: "#374151", // Dark Gray
+  nuclear: "#3b82f6", // Blue
+  wind: "#10b981", // Green
+  solar: "#fbbf24", // Yellow
+  hydro: "#06b6d4", // Cyan
 }
 
 const ENERGY_LABELS = {

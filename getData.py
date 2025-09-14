@@ -1,3 +1,5 @@
+import os
+os.environ['PYTHONIOENCODING'] = 'utf-8'
 import requests
 import pandas as pd
 from pulp import LpProblem, LpMinimize, LpVariable, lpSum, PULP_CBC_CMD, LpStatus
@@ -122,26 +124,26 @@ df_gen = df_gen.apply(pd.to_numeric, errors='coerce')
 # Get fuel mix
 ercot = Ercot()
 fuel_mix_df = ercot.get_fuel_mix("today")
-print("\n📊 ERCOT Fuel Mix:")
+print("\n ERCOT Fuel Mix:")
 print(fuel_mix_df.head())
 
 # Extract capacity
 available_capacity_mw = extract_all_generation_capacity(df_gen, fuel_mix_df)
-print("\n✅ Available Capacity (MW):")
+print("\n Available Capacity (MW):")
 for k, v in available_capacity_mw.items():
     print(f"  {k.title()}: {v:.2f}")
 
 # Get pricing and costs
 west_zone_price = get_west_zone_pricing(id_token, SUBSCRIPTION_KEY)
 if west_zone_price:
-    print(f"\n✅ West zone price: ${west_zone_price:.2f}/MWh")
+    print(f"\n West zone price: ${west_zone_price:.2f}/MWh")
 else:
-    print("\n⚠️ Using default costs")
+    print("\n Using default costs")
 
 operational_costs = get_all_fuel_costs(west_zone_price)
 total_costs, infrastructure_costs = calculate_total_costs(operational_costs)
 
-print(f"\n💡 Cost Breakdown ($/MWh):")
+print(f"\n Cost Breakdown ($/MWh):")
 print(f"{'Fuel':<15} {'Operational':<12} {'Infrastructure':<14} {'Total':<10}")
 print("-" * 55)
 for fuel in operational_costs:
@@ -156,7 +158,7 @@ result = optimize_energy_mix(available_capacity_mw, total_costs, estimated_deman
 
 if result:
     prob, alloc, valid_capacity, actual_demand = result
-    print(f"\n✅ Optimized Mix for {actual_demand:.0f} MW:")
+    print(f"\n Optimized Mix for {actual_demand:.0f} MW:")
     print(f"{'Fuel':<15} {'MW':<8} {'Util%':<6} {'Cost':<10}")
     print("-" * 45)
     
