@@ -13,8 +13,8 @@ def extract_all_generation_capacity(df_gen, fuel_mix_df):
     
     # Start with your original capacity extraction
     available_capacity_mw = {
-        "natural_gas": latest_row.get("sumBasePointNonWGR", 0) * 0.7,  # Assume 70% of NonWGR is natural gas
-        "coal": latest_row.get("sumBasePointNonWGR", 0) * 0.3,  # Assume 30% of NonWGR is coal
+        "natural_gas": latest_row.get("sumBasePointNonWGR", 0) * 0.7,
+        "coal": latest_row.get("sumBasePointNonWGR", 0) * 0.3,
         "wind": latest_row.get("sumBasePointWGR", 0),
         "solar": latest_row.get("sumBasePointRemRes", 0),
     }
@@ -23,21 +23,21 @@ def extract_all_generation_capacity(df_gen, fuel_mix_df):
     if fuel_mix_df is not None and not fuel_mix_df.empty:
         latest_mix = fuel_mix_df.iloc[-1]
         
-        # Add nuclear capacity (estimate as 1.2x current generation)
+        # Add nuclear capacity
         if 'Nuclear' in latest_mix and latest_mix['Nuclear'] > 0:
             available_capacity_mw['nuclear'] = latest_mix['Nuclear'] * 1.2
         
-        # Add hydro capacity (estimate as current generation since it's often at capacity)
+        # Add hydro capacity
         if 'Hydro' in latest_mix and latest_mix['Hydro'] > 0:
             available_capacity_mw['hydro'] = latest_mix['Hydro']
         
-        # Add battery storage capacity (estimate as current generation)
+        # Add battery storage capacity
         if 'Power Storage' in latest_mix and latest_mix['Power Storage'] > 0:
             available_capacity_mw['battery_storage'] = latest_mix['Power Storage']
         
-        # Add petroleum capacity from "Other" category (estimate small portion)
+        # Add petroleum capacity from "Other" category
         if 'Other' in latest_mix and latest_mix['Other'] > 0:
-            available_capacity_mw['petroleum'] = latest_mix['Other'] * 0.5  # Assume 50% of "Other" is petroleum
+            available_capacity_mw['petroleum'] = latest_mix['Other'] * 0.5
     
     return available_capacity_mw
 
@@ -48,18 +48,16 @@ def get_west_zone_pricing(id_token, subscription_key):
         "Authorization": f"Bearer {id_token}"
     }
     
-    # Settlement Point Prices API endpoint for Load Zones
     SPP_URL = "https://api.ercot.com/api/public-reports/np6-905-cd/spp_node_zone_hub"
     
-    # Get current timestamp for recent pricing data
     current_time = datetime.now()
-    start_time = current_time - timedelta(hours=2)  # Last 2 hours of data
+    start_time = current_time - timedelta(hours=2)
     
     params = {
         "deliveryDateFrom": start_time.strftime("%Y-%m-%d"),
         "deliveryDateTo": current_time.strftime("%Y-%m-%d"),
-        "settlementPointType": "LZ",  # Load Zone
-        "settlementPoint": "LZ_WEST",  # Specifically request West Load Zone
+        "settlementPointType": "LZ",
+        "settlementPoint": "LZ_WEST",
         "page": 1,
         "size": 100
     }
@@ -75,13 +73,10 @@ def get_west_zone_pricing(id_token, subscription_key):
                 df_spp = pd.DataFrame(rows, columns=fields)
                 df_spp = df_spp.apply(pd.to_numeric, errors='coerce')
                 
-                # Check if we have settlement point price data
                 if 'settlementPointPrice' in df_spp.columns:
-                    # Filter for valid (non-NaN) prices
                     valid_prices = df_spp['settlementPointPrice'].dropna()
                     
                     if not valid_prices.empty:
-                        # Get the most recent West zone price
                         latest_west_price = valid_prices.iloc[-1]
                         print(f"✅ Found West zone price: ${latest_west_price:.2f}/MWh")
                         return latest_west_price
@@ -90,42 +85,129 @@ def get_west_zone_pricing(id_token, subscription_key):
                         return None
                 else:
                     print("⚠️ settlementPointPrice column not found in response")
-                    print(f"📋 Available columns: {list(df_spp.columns)}")
                     return None
             else:
                 print("⚠️ No settlement point pricing data returned")
                 return None
         else:
-            print(f"⚠️ Settlement Point Prices API Error: {response.status_code} - {response.text}")
+            print(f"⚠️ Settlement Point Prices API Error: {response.status_code}")
             return None
     except Exception as e:
         print(f"⚠️ Error fetching West zone pricing: {e}")
         return None
 
 def get_all_fuel_costs(west_zone_price=None):
+    """Get costs for all energy types."""
+    default_costs = {
+        'natural_gas': 35,
+        'coal': 30,
+        'nuclear': 12,
+        'wind': 5,
+        'solar': 10,
+        'hydro': 10,
+        'battery_storage': 45,
+        'petroleum': 60
+    }
     
-    # If we have real West zone pricing, use it as the base price and adjust fuel types accordingly
     if west_zone_price and west_zone_price > 0:
-        print(f"\n💰 Using Real-Time West Zone Price: ${west_zone_price:.2f}/MWh")
+        print(f"💰 Using Real-Time West Zone Price: ${west_zone_price:.2f}/MWh")
         
-        # Adjust fuel costs based on real market price
-        # More expensive fuels cost more than market price, cheaper ones less
         base_price = west_zone_price
         default_costs = {
-            'natural_gas': base_price * 1.0,    # Natural gas usually sets the marginal price
-            'coal': base_price * 0.85,          # Coal is usually cheaper than market price
-            'nuclear': base_price * 0.4,        # Nuclear is very cheap marginal cost
-            'wind': base_price * 0.15,          # Wind has very low marginal cost
-            'solar': base_price * 0.2,          # Solar has very low marginal cost  
-            'hydro': base_price * 0.3,          # Hydro has low marginal cost
-            'battery_storage': base_price * 1.3, # Storage includes efficiency losses
-            'petroleum': base_price * 1.5       # Petroleum is typically most expensive
+            'natural_gas': base_price * 1.0,
+            'coal': base_price * 0.85,
+            'nuclear': base_price * 0.4,
+            'wind': base_price * 0.15,
+            'solar': base_price * 0.2,
+            'hydro': base_price * 0.3,
+            'battery_storage': base_price * 1.3,
+            'petroleum': base_price * 1.5
         }
         print("🔄 Fuel costs adjusted based on real-time West zone market price")
     else:
         print("🔧 Using default fuel costs (West zone pricing not available)")
     
     return default_costs
+
+def get_infrastructure_costs():
+    """Get infrastructure costs for each energy type."""
+    return {
+        'natural_gas': 800,
+        'coal': 3500,
+        'nuclear': 6000,
+        'wind': 1600,
+        'solar': 1200,
+        'hydro': 2500,
+        'battery_storage': 1800,
+        'petroleum': 900
+    }
+
+def calculate_total_costs(operational_costs, infrastructure_costs=None):
+    """Calculate total costs including operational and infrastructure components."""
+    
+    realistic_infrastructure_costs = {
+        'natural_gas': 8,
+        'coal': 25,
+        'nuclear': 85,
+        'wind': 45,
+        'solar': 35,
+        'hydro': 60,
+        'battery_storage': 120,
+        'petroleum': 12
+    }
+    
+    total_costs = {}
+    
+    for fuel_type in operational_costs:
+        if fuel_type in realistic_infrastructure_costs:
+            total_costs[fuel_type] = operational_costs[fuel_type] + realistic_infrastructure_costs[fuel_type]
+        else:
+            total_costs[fuel_type] = operational_costs[fuel_type]
+    
+    return total_costs, realistic_infrastructure_costs
+
+def optimize_with_constraints(available_capacity, costs, demand_mw):
+    """Enhanced optimization with realistic constraints."""
+    if not available_capacity:
+        print("❌ No capacity data available for optimization.")
+        return None
+    
+    valid_capacity = {k: v for k, v in available_capacity.items() if v > 0}
+    
+    if not valid_capacity:
+        print("❌ No valid capacity data for optimization.")
+        return None
+    
+    total_available = sum(valid_capacity.values())
+    if total_available < demand_mw:
+        print(f"⚠️ Warning: Total available capacity ({total_available:.0f} MW) < Demand ({demand_mw:.0f} MW)")
+        print("🔄 Adjusting demand to 80% of available capacity")
+        demand_mw = total_available * 0.8
+    
+    prob = LpProblem("Energy_Mix_Optimization", LpMinimize)
+    
+    alloc = {}
+    for fuel_type in valid_capacity:
+        if fuel_type in costs:
+            alloc[fuel_type] = LpVariable(f"Alloc_{fuel_type}", lowBound=0)
+    
+    if not alloc:
+        print("❌ No matching cost data for available fuel types.")
+        return None
+    
+    prob += lpSum(alloc[fuel_type] * costs[fuel_type] for fuel_type in alloc), "Total_Cost"
+    prob += lpSum(alloc[fuel_type] for fuel_type in alloc) == demand_mw, "Meet_Demand"
+    
+    for fuel_type in alloc:
+        prob += alloc[fuel_type] <= valid_capacity[fuel_type], f"Cap_{fuel_type}"
+    
+    status = prob.solve(PULP_CBC_CMD(msg=False))
+    
+    if LpStatus[status] == "Optimal":
+        return prob, alloc, valid_capacity, demand_mw
+    else:
+        print(f"❌ Optimization failed with status: {LpStatus[status]}")
+        return None
 
 # Step 1: Acquire ID Token from ERCOT
 TOKEN_URL = "https://ercotb2c.b2clogin.com/ercotb2c.onmicrosoft.com/B2C_1_PUBAPI-ROPC-FLOW/oauth2/v2.0/token"
@@ -169,19 +251,18 @@ else:
     print(f"Error fetching generation data: {response.status_code} - {response.text}")
     exit()
 
-# Step 3: Get Fuel Mix (System-wide) to Estimate Costs
+# Step 3: Get Fuel Mix
 ercot = Ercot()
 fuel_mix_df = ercot.get_fuel_mix("today")
 print("\n📊 ERCOT Fuel Mix (Today's Snapshot):")
 print(fuel_mix_df.head())
 
-# Extract all available capacity using both data sources
 available_capacity_mw = extract_all_generation_capacity(df_gen, fuel_mix_df)
 print("\n✅ Available West Generation Capacity (MW):")
 for k, v in available_capacity_mw.items():
     print(f"  {k.title()}: {v:.2f}")
 
-# Step 4: Get EIA Historical Prices to Estimate Costs
+# Step 4: Get EIA Historical Prices
 EIA_API_KEY = "i1eamKsKUoUMzkwKKw9EDcW5EXokmLj8mf9bA83m"
 EIA_URL = "https://api.eia.gov/v2/electricity/rto/fuel-type-data/data/"
 eia_params = {
@@ -211,35 +292,81 @@ else:
 # Step 5: Get Real-Time West Zone Pricing
 west_zone_price = get_west_zone_pricing(id_token, SUBSCRIPTION_KEY)
 
-# Step 6: Set Costs using real-time West zone pricing if available
-costs = get_all_fuel_costs(west_zone_price)
+# Step 6: Calculate total costs including infrastructure
+operational_costs = get_all_fuel_costs(west_zone_price)
+infrastructure_costs = get_infrastructure_costs()
+total_costs, realistic_infra_costs = calculate_total_costs(operational_costs, infrastructure_costs)
 
-# Step 7: Use last known total generation as proxy for demand
-estimated_demand_mw = sum(available_capacity_mw.values()) * 0.9  # assume 90% utilization
+print(f"\n💡 Cost Breakdown ($/MWh):")
+print(f"{'Fuel Type':<15} {'Operational':<12} {'Infrastructure':<14} {'Total':<10}")
+print("-" * 55)
+for fuel_type in operational_costs:
+    if fuel_type in total_costs and fuel_type in realistic_infra_costs:
+        op_cost = operational_costs[fuel_type]
+        infra_cost = realistic_infra_costs[fuel_type] 
+        total_cost = op_cost + infra_cost
+        print(f"{fuel_type.replace('_', ' ').title():<15} "
+              f"${op_cost:<11.2f} "
+              f"${infra_cost:<13.2f} "
+              f"${total_cost:<9.2f}")
+
+# Step 7: Calculate demand
+estimated_demand_mw = sum(available_capacity_mw.values()) * 0.9
 
 # Step 8: Run Optimization
-prob = LpProblem("Optimal_West_Energy_Mix", LpMinimize)
-alloc = {src: LpVariable(f"Alloc_{src}", lowBound=0) for src in available_capacity_mw}
+optimization_result = optimize_with_constraints(available_capacity_mw, total_costs, estimated_demand_mw)
 
-# Objective
-prob += lpSum(alloc[src] * costs[src] for src in alloc), "Total_Cost"
-
-# Constraints
-prob += lpSum(alloc[src] for src in alloc) == estimated_demand_mw, "Meet_Demand"
-for src in alloc:
-    prob += alloc[src] <= available_capacity_mw[src], f"Cap_{src}"
-
-status = prob.solve(PULP_CBC_CMD(msg=False))
-
-if LpStatus[status] == "Optimal":
-    print(f"\n✅ Optimal Energy Mix for ~{estimated_demand_mw:.0f} MW Demand:")
+if optimization_result:
+    prob, alloc, valid_capacity, actual_demand = optimization_result
+    print(f"\n✅ Optimized Energy Mix for ~{actual_demand:.0f} MW Demand:")
     total_cost = 0
-    for src in alloc:
-        val = alloc[src].varValue
-        cost = val * costs[src]
-        total_cost += cost
-        print(f"  {src.title():<12}: {val:.2f} MW @ ${costs[src]:.2f}/MWh = ${cost:.2f}")
-    print(f"\n💰 Total Cost for 1 Hour = ${total_cost:.2f}")
+    total_generation = 0
+    
+    results = []
+    for fuel_type in alloc:
+        allocation = alloc[fuel_type].varValue
+        if allocation > 0.01:
+            operational_cost = operational_costs[fuel_type] * allocation
+            infrastructure_component = realistic_infra_costs.get(fuel_type, 0) * allocation
+            total_fuel_cost = allocation * total_costs[fuel_type]
+            utilization = (allocation / valid_capacity[fuel_type]) * 100
+            
+            results.append({
+                'fuel_type': fuel_type,
+                'allocation': allocation,
+                'operational_cost': operational_cost,
+                'infrastructure_cost': infrastructure_component,
+                'total_cost': total_fuel_cost,
+                'utilization': utilization
+            })
+            
+            total_cost += total_fuel_cost
+            total_generation += allocation
+    
+    results.sort(key=lambda x: x['allocation'], reverse=True)
+    
+    print(f"{'Fuel Type':<15} {'MW':<8} {'Util%':<6} {'Op Cost':<10} {'Infra Cost':<11} {'Total Cost':<10}")
+    print("-" * 75)
+    
+    for result in results:
+        print(f"{result['fuel_type'].replace('_', ' ').title():<15} "
+              f"{result['allocation']:<8.1f} "
+              f"{result['utilization']:<6.1f} "
+              f"${result['operational_cost']:<9.0f} "
+              f"${result['infrastructure_cost']:<10.0f} "
+              f"${result['total_cost']:<9.0f}")
+    
+    print("=" * 75)
+    print(f"{'Total':<15} {total_generation:<8.1f} {'--':<6} {'--':<10} {'--':<11} ${total_cost:<9.0f}")
+    print(f"\n💰 Total Cost per Hour: ${total_cost:,.2f}")
+    print(f"📊 Average Cost: ${total_cost/actual_demand:.2f}/MWh")
+    
+    renewable_pct = sum([r['allocation'] for r in results if r['fuel_type'] in ['wind', 'solar']]) / total_generation * 100
+    baseload_pct = sum([r['allocation'] for r in results if r['fuel_type'] in ['nuclear', 'coal', 'hydro']]) / total_generation * 100
+    
+    print(f"\n🔋 Energy Mix Summary:")
+    print(f"   Renewables (Wind + Solar): {renewable_pct:.1f}%")
+    print(f"   Baseload (Nuclear + Coal + Hydro): {baseload_pct:.1f}%")
+    print(f"   Dispatchable (Gas + Storage + Petroleum): {100 - renewable_pct - baseload_pct:.1f}%")
 else:
-    print("❌ Optimization failed.")
-
+    print("❌ Enhanced optimization failed.")
