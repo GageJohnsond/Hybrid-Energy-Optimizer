@@ -39,8 +39,14 @@ function calculateOperationalCosts() {
   const costs: Record<string, number> = {}
   for (const [source, basePrice] of Object.entries(BASE_PRICES)) {
     const multiplier = PRICE_MULTIPLIERS[source as keyof typeof PRICE_MULTIPLIERS] || 1.0
-    costs[source] = Math.round(basePrice * multiplier)
+    // Convert snake_case to camelCase for consistency with energy data
+    const camelCaseKey = source.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
+    costs[camelCaseKey] = Math.round(basePrice * multiplier)
   }
+  
+  // Debug: log the costs to see what we're generating
+  console.log('Operational costs:', costs)
+  
   return costs
 }
 
@@ -233,7 +239,7 @@ function generateFromRegion(name: string, state: string, population: number) {
     totalDemand: Math.floor(population * 0.012), // same demand formula
     renewablePercent: Number((currentEnergy.wind + currentEnergy.solar + currentEnergy.hydro).toFixed(1)),
     co2Intensity: Number((0.3 + Math.random() * 0.1).toFixed(2)), // fixed-ish range per region
-    // NEW: Add pricing data
+    // Add pricing data
     operationalCosts,
     basePrices: BASE_PRICES,
   }
@@ -318,8 +324,8 @@ const CITY_DATA = ALL_CITIES.reduce((acc, city) => {
       totalDemand: lubbockERCOTData.totalDemand,
       renewablePercent: lubbockERCOTData.renewablePercent,
       co2Intensity: lubbockERCOTData.co2Intensity,
-      // For Lubbock, use the dynamic pricing from getData.py
-      operationalCosts: calculateOperationalCosts(), // Default for now
+      // For Lubbock, use the calculated pricing
+      operationalCosts: calculateOperationalCosts(),
       basePrices: BASE_PRICES,
     }
   } else {
