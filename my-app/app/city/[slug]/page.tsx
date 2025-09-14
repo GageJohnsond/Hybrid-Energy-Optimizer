@@ -7,6 +7,44 @@ import { ContentSections } from "@/components/content-sections"
 import { lubbockERCOTData } from "@/lib/ercot-data"
 
 // -----------------
+// BASE ENERGY PRICES ($/MWh) - National Averages
+// -----------------
+const BASE_PRICES = {
+  natural_gas: 55,
+  coal: 65,
+  nuclear: 85,
+  wind: 25,
+  solar: 35,
+  hydro: 58,
+  petroleum: 120,
+  battery_storage: 75, // Added for completeness
+}
+
+// -----------------
+// PRICE MULTIPLIERS for calculating operational costs
+// -----------------
+const PRICE_MULTIPLIERS = {
+  natural_gas: 1.0,
+  coal: 0.85,
+  nuclear: 0.4,
+  wind: 0.15,
+  solar: 0.2,
+  hydro: 0.3,
+  battery_storage: 1.3,
+  petroleum: 1.5,
+}
+
+// Function to calculate operational costs
+function calculateOperationalCosts() {
+  const costs: Record<string, number> = {}
+  for (const [source, basePrice] of Object.entries(BASE_PRICES)) {
+    const multiplier = PRICE_MULTIPLIERS[source as keyof typeof PRICE_MULTIPLIERS] || 1.0
+    costs[source] = Math.round(basePrice * multiplier)
+  }
+  return costs
+}
+
+// -----------------
 // Hardcoded mixes (% of generation, EPA eGRID 2022-based)
 // -----------------
 const REGION_MIXES: Record<string, any> = {
@@ -159,11 +197,14 @@ function getRegion(state: string): string {
 }
 
 // -----------------
-// Generate data from hardcoded mixes
+// Generate data from hardcoded mixes with pricing
 // -----------------
 function generateFromRegion(name: string, state: string, population: number) {
   const region = getRegion(state)
   const currentEnergy = REGION_MIXES[region] || REGION_MIXES["ERCOT"]
+  
+  // Calculate operational costs for this region
+  const operationalCosts = calculateOperationalCosts()
 
   // Optimized: reduce fossil, boost renewables
   const optimizedEnergy = {
@@ -192,6 +233,9 @@ function generateFromRegion(name: string, state: string, population: number) {
     totalDemand: Math.floor(population * 0.012), // same demand formula
     renewablePercent: Number((currentEnergy.wind + currentEnergy.solar + currentEnergy.hydro).toFixed(1)),
     co2Intensity: Number((0.3 + Math.random() * 0.1).toFixed(2)), // fixed-ish range per region
+    // NEW: Add pricing data
+    operationalCosts,
+    basePrices: BASE_PRICES,
   }
 }
 
@@ -215,7 +259,46 @@ const ALL_CITIES = [
   { name: "Laredo", state: "TX", population: 261260 },
   { name: "Irving", state: "TX", population: 258060 },
   { name: "Garland", state: "TX", population: 250431 },
-  // ... keep rest
+  { name: "Phoenix", state: "AZ", population: 1680992 },
+  { name: "Philadelphia", state: "PA", population: 1584064 },
+  { name: "San Diego", state: "CA", population: 1423851 },
+  { name: "San Jose", state: "CA", population: 1021795 },
+  { name: "Jacksonville", state: "FL", population: 949611 },
+  { name: "Columbus", state: "OH", population: 905748 },
+  { name: "Charlotte", state: "NC", population: 885708 },
+  { name: "San Francisco", state: "CA", population: 873965 },
+  { name: "Indianapolis", state: "IN", population: 876384 },
+  { name: "Seattle", state: "WA", population: 753675 },
+  { name: "Denver", state: "CO", population: 715522 },
+  { name: "Boston", state: "MA", population: 685094 },
+  { name: "Detroit", state: "MI", population: 670031 },
+  { name: "Nashville", state: "TN", population: 689447 },
+  { name: "Portland", state: "OR", population: 652503 },
+  { name: "Memphis", state: "TN", population: 633104 },
+  { name: "Oklahoma City", state: "OK", population: 695755 },
+  { name: "Las Vegas", state: "NV", population: 641903 },
+  { name: "Louisville", state: "KY", population: 617638 },
+  { name: "Baltimore", state: "MD", population: 576498 },
+  { name: "Milwaukee", state: "WI", population: 577222 },
+  { name: "Albuquerque", state: "NM", population: 564559 },
+  { name: "Tucson", state: "AZ", population: 548073 },
+  { name: "Fresno", state: "CA", population: 542107 },
+  { name: "Mesa", state: "AZ", population: 518012 },
+  { name: "Sacramento", state: "CA", population: 524943 },
+  { name: "Atlanta", state: "GA", population: 498715 },
+  { name: "Kansas City", state: "MO", population: 508090 },
+  { name: "Colorado Springs", state: "CO", population: 478961 },
+  { name: "Miami", state: "FL", population: 442241 },
+  { name: "Raleigh", state: "NC", population: 474069 },
+  { name: "Omaha", state: "NE", population: 486051 },
+  { name: "Long Beach", state: "CA", population: 466742 },
+  { name: "Virginia Beach", state: "VA", population: 459470 },
+  { name: "Oakland", state: "CA", population: 440646 },
+  { name: "Minneapolis", state: "MN", population: 429954 },
+  { name: "Tulsa", state: "OK", population: 413066 },
+  { name: "Tampa", state: "FL", population: 384959 },
+  { name: "New Orleans", state: "LA", population: 383997 },
+  { name: "Wichita", state: "KS", population: 397532 },
 ]
 
 // -----------------
@@ -224,6 +307,7 @@ const ALL_CITIES = [
 const CITY_DATA = ALL_CITIES.reduce((acc, city) => {
   const slug = `${city.name.toLowerCase().replace(/\s+/g, "-")}-${city.state.toLowerCase()}`
   if (city.name === "Lubbock" && city.state === "TX") {
+    // Special case: Use real ERCOT data for Lubbock
     acc[slug] = {
       name: city.name,
       state: city.state,
@@ -234,8 +318,12 @@ const CITY_DATA = ALL_CITIES.reduce((acc, city) => {
       totalDemand: lubbockERCOTData.totalDemand,
       renewablePercent: lubbockERCOTData.renewablePercent,
       co2Intensity: lubbockERCOTData.co2Intensity,
+      // For Lubbock, use the dynamic pricing from getData.py
+      operationalCosts: calculateOperationalCosts(), // Default for now
+      basePrices: BASE_PRICES,
     }
   } else {
+    // All other cities: Use generated data with hardcoded pricing
     acc[slug] = generateFromRegion(city.name, city.state, city.population)
   }
   return acc

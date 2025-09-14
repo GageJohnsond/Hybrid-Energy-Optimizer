@@ -181,9 +181,9 @@ export function EnergyCharts({ cityData }: EnergyChartsProps) {
         <Card className="max-w-4xl mx-auto">
           <CardContent className="pt-6">
             <h3 className="text-xl font-semibold mb-4">Key Optimization Changes</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
               <div className="p-4 bg-muted/30 rounded-lg">
-                <div className="font-medium text-green-600">Renewables Increase</div>
+                <div className="font-medium text-cyan-600">Renewables Increase</div>
                 <div className="text-2xl font-bold mt-1">
                   +
                   {(
@@ -213,6 +213,10 @@ export function EnergyCharts({ cityData }: EnergyChartsProps) {
               <div className="p-4 bg-muted/30 rounded-lg">
                 <div className="font-medium text-purple-600">CO₂ Reduction</div>
                 <div className="text-2xl font-bold mt-1">~35%</div>
+              </div>
+              <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="font-medium text-green-600">Cost Reduction</div>
+                <div className="text-2xl font-bold mt-1">-16%</div>
               </div>
             </div>
           </CardContent>
