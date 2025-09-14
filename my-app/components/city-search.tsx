@@ -172,7 +172,7 @@ export function CitySearch() {
   }
 
   return (
-    <section className="relative py-24 sm:py-32">
+    <section className="relative py-24 sm:py-32 -mt-10">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl">
           <div className="relative">

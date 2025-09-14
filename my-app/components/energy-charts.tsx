@@ -262,7 +262,7 @@ export function EnergyCharts({ cityData }: EnergyChartsProps) {
             {/* Additional cost breakdown */}
             <div className="mt-6 pt-4 border-t border-border">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="text-left">
+                <div className="text-center">
                   <div className="font-medium text-foreground">Current Annual Cost:</div>
                   <div className="text-lg font-bold text-blue-600">
                     ${(currentTotalCost / 1000000).toFixed(3)}M
@@ -271,7 +271,7 @@ export function EnergyCharts({ cityData }: EnergyChartsProps) {
                     (${currentAvgCost.toFixed(2)} per MWh average)
                   </div>
                 </div>
-                <div className="text-left">
+                <div className="text-center">
                   <div className="font-medium text-foreground">Optimized Annual Cost:</div>
                   <div className="text-lg font-bold text-green-600">
                     ${(optimizedTotalCost / 1000000).toFixed(3)}M
