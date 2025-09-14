@@ -146,14 +146,14 @@ def calculate_total_costs(operational_costs, infrastructure_costs=None):
     """Calculate total costs including operational and infrastructure components."""
     
     realistic_infrastructure_costs = {
-        'natural_gas': 8,
-        'coal': 25,
-        'nuclear': 85,
+        'natural_gas': 20,
+        'coal': 37,
+        'nuclear': 80,
         'wind': 45,
         'solar': 35,
-        'hydro': 60,
-        'battery_storage': 120,
-        'petroleum': 12
+        'hydro': 40,
+        'battery_storage': 100,
+        'petroleum': 40
     }
     
     total_costs = {}
