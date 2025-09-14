@@ -28,6 +28,40 @@ interface ContentSectionsProps {
   cityData: CityData
 }
 
+/** Bar color by source “family” */
+function getBarColor(sourceName: string) {
+  const s = sourceName.toLowerCase()
+  if (s === "nuclear") return "bg-amber-500"
+  if (s === "wind" || s === "solar" || s === "hydro") return "bg-emerald-500"
+  // fossil fuels
+  return "bg-rose-500"
+}
+
+/** Thin, labeled percentage bar (0–100) */
+function PercentageBar({
+  value,
+  label,
+  colorClass,
+}: {
+  value: number
+  label: string
+  colorClass: string
+}) {
+  const clamped = Math.max(0, Math.min(100, value))
+  return (
+    <div className="space-y-1" aria-label={`${label} percentage bar`}>
+      <div className="h-2 w-full rounded-full bg-muted relative overflow-hidden">
+        <div
+          className={`h-full ${colorClass} rounded-full transition-all`}
+          style={{ width: `${clamped}%` }}
+          aria-hidden
+        />
+      </div>
+      <div className="text-xs text-muted-foreground">{clamped.toFixed(1)}%</div>
+    </div>
+  )
+}
+
 export function ContentSections({ cityData }: ContentSectionsProps) {
   const renewableIncrease =
     cityData.optimizedEnergy.wind +
@@ -189,6 +223,7 @@ export function ContentSections({ cityData }: ContentSectionsProps) {
             const ChangeIcon = change > 0.5 ? TrendingUp : change < -0.5 ? TrendingDown : Minus
             const changeColor =
               change > 0.5 ? "text-green-600" : change < -0.5 ? "text-red-600" : "text-muted-foreground"
+            const colorClass = getBarColor(source.name)
 
             return (
               <Card key={source.name} className="h-full">
@@ -199,20 +234,32 @@ export function ContentSections({ cityData }: ContentSectionsProps) {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Current */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Current</span>
                       <span className="font-medium">{source.current.toFixed(1)}%</span>
                     </div>
                     <Progress value={source.current} className="h-2" />
+                    {/* NEW: thin colored bar that visualizes the same percentage */}
+                    <PercentageBar value={source.current} label={`${source.name} current`} colorClass={colorClass} />
                   </div>
+
+                  {/* Optimized */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Optimized</span>
                       <span className="font-medium">{source.optimized.toFixed(1)}%</span>
                     </div>
                     <Progress value={source.optimized} className="h-2" />
+                    {/* NEW: thin colored bar that visualizes the same percentage */}
+                    <PercentageBar
+                      value={source.optimized}
+                      label={`${source.name} optimized`}
+                      colorClass={colorClass}
+                    />
                   </div>
+
                   <div className={`flex items-center gap-2 text-sm ${changeColor}`}>
                     <ChangeIcon className="h-4 w-4" />
                     <span className="font-medium">
@@ -389,7 +436,7 @@ export function ContentSections({ cityData }: ContentSectionsProps) {
       <section id="methodology" className="py-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Methodology</h2>
-          <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="mt-4 text-lg text-muted-foreground">
             Technical approach and data sources used in this energy consumption analysis.
           </p>
         </div>
