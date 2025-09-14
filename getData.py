@@ -146,14 +146,14 @@ def calculate_total_costs(operational_costs, infrastructure_costs=None):
     """Calculate total costs including operational and infrastructure components."""
     
     realistic_infrastructure_costs = {
-        'natural_gas': 20,
-        'coal': 37,
-        'nuclear': 80,
+        'natural_gas': 8,
+        'coal': 25,
+        'nuclear': 85,
         'wind': 45,
         'solar': 35,
-        'hydro': 40,
-        'battery_storage': 100,
-        'petroleum': 40
+        'hydro': 60,
+        'battery_storage': 120,
+        'petroleum': 12
     }
     
     total_costs = {}
@@ -319,13 +319,15 @@ optimization_result = optimize_with_constraints(available_capacity_mw, total_cos
 if optimization_result:
     prob, alloc, valid_capacity, actual_demand = optimization_result
     print(f"\n✅ Optimized Energy Mix for ~{actual_demand:.0f} MW Demand:")
+    
     total_cost = 0
     total_generation = 0
-    
     results = []
+    
+    # Collect results once
     for fuel_type in alloc:
         allocation = alloc[fuel_type].varValue
-        if allocation > 0.01:
+        if allocation > 0.01:  # Only show significant allocations
             operational_cost = operational_costs[fuel_type] * allocation
             infrastructure_component = realistic_infra_costs.get(fuel_type, 0) * allocation
             total_fuel_cost = allocation * total_costs[fuel_type]
@@ -343,8 +345,10 @@ if optimization_result:
             total_cost += total_fuel_cost
             total_generation += allocation
     
+    # Sort results once
     results.sort(key=lambda x: x['allocation'], reverse=True)
     
+    # Display results once
     print(f"{'Fuel Type':<15} {'MW':<8} {'Util%':<6} {'Op Cost':<10} {'Infra Cost':<11} {'Total Cost':<10}")
     print("-" * 75)
     
@@ -358,15 +362,18 @@ if optimization_result:
     
     print("=" * 75)
     print(f"{'Total':<15} {total_generation:<8.1f} {'--':<6} {'--':<10} {'--':<11} ${total_cost:<9.0f}")
+    
     print(f"\n💰 Total Cost per Hour: ${total_cost:,.2f}")
     print(f"📊 Average Cost: ${total_cost/actual_demand:.2f}/MWh")
     
+    # Calculate percentages
     renewable_pct = sum([r['allocation'] for r in results if r['fuel_type'] in ['wind', 'solar']]) / total_generation * 100
     baseload_pct = sum([r['allocation'] for r in results if r['fuel_type'] in ['nuclear', 'coal', 'hydro']]) / total_generation * 100
+    dispatchable_pct = 100 - renewable_pct - baseload_pct
     
     print(f"\n🔋 Energy Mix Summary:")
     print(f"   Renewables (Wind + Solar): {renewable_pct:.1f}%")
     print(f"   Baseload (Nuclear + Coal + Hydro): {baseload_pct:.1f}%")
-    print(f"   Dispatchable (Gas + Storage + Petroleum): {100 - renewable_pct - baseload_pct:.1f}%")
+    print(f"   Dispatchable (Gas + Storage + Petroleum): {dispatchable_pct:.1f}%")
 else:
     print("❌ Enhanced optimization failed.")
